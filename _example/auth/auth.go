@@ -35,7 +35,7 @@ import (
 func main() {
 
 	// You can use sdk client to make things easier
-	log.Println(sdk.NewClient("localhost:3051", &sdk.ClientOpt{
+	log.Println(sdk.NewClient("127.0.0.1:8080", &sdk.ClientOpt{
 		InsecureSkipVerify: false,
 		ServerName:         "server.com",
 		CaCrt:              "out/ca.crt",

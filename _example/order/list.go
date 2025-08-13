@@ -31,7 +31,7 @@ import (
 
 func main() {
 
-	c, err := sdk.NewClient("localhost:3051", &sdk.ClientOpt{
+	c, err := sdk.NewClient("127.0.0.1:8080", &sdk.ClientOpt{
 		InsecureSkipVerify: false,
 		ServerName:         "server.com",
 		CaCrt:              "out/ca.crt",
@@ -45,18 +45,32 @@ func main() {
 
 	defer c.Close()
 
-	// Pay order
-	l, err := orderpb.NewOrderServiceClient(c).List(context.Background(), &orderpb.ListRequest{
-		Limit: 4,
+	lst, err := orderpb.NewOrderServiceClient(c).List(context.Background(), &orderpb.ListRequest{
+		Limit: 5,
 		Page:  0,
 	})
-
 	if err != nil {
-		panic(err)
+		log.Fatalf("failed to list orders: %v", err)
 	}
 
-	for _, order := range l.Orders {
-		log.Println(order.GetId(), order.GetCreated())
+	log.Printf("total orders: %d\n", lst.Total)
+	for i, o := range lst.Orders {
+		log.Printf("[%d] id: %s\n"+
+			"     amount: %d %s\n"+
+			"     status: %s\n"+
+			"     email: %s\n"+
+			"     created: %d\n"+
+			"     updated: %d\n"+
+			"     items: %d\n",
+			i+1,
+			o.Id,
+			o.Amount,
+			o.Currency.String(),
+			o.Status.String(),
+			o.Email,
+			o.Created,
+			o.Updated,
+			len(o.Items),
+		)
 	}
-
 }

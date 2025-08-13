@@ -31,7 +31,7 @@ import (
 
 func main() {
 
-	c, err := sdk.NewClient("localhost:3051", &sdk.ClientOpt{
+	c, err := sdk.NewClient("127.0.0.1:8080", &sdk.ClientOpt{
 		InsecureSkipVerify: false,
 		ServerName:         "server.com",
 		CaCrt:              "out/ca.crt",
@@ -45,10 +45,18 @@ func main() {
 
 	defer c.Close()
 
-	// Charge amount
-	log.Println(productpb.NewProductServiceClient(c).List(context.Background(), &productpb.ListRequest{
+	resp, err := productpb.NewProductServiceClient(c).List(context.Background(), &productpb.ListRequest{
 		Limit: 10,
 		Page:  0,
-	}))
+	})
+	if err != nil {
+		log.Fatalf("failed to list products: %v", err)
+	}
+
+	log.Printf("Total products: %d\n", resp.Total)
+	for i, p := range resp.Products {
+		log.Printf("[%d] ID: %s | Name: %s | Active: %t | Price SKUs: %d\n", 
+			i+1, p.Id, p.Name, p.Active, len(p.Skus))
+	}
 
 }

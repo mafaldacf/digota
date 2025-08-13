@@ -28,11 +28,12 @@ import (
 	"github.com/icrowley/fake"
 	"golang.org/x/net/context"
 	"log"
+	"os"
 )
 
 func main() {
 
-	c, err := sdk.NewClient("localhost:3051", &sdk.ClientOpt{
+	c, err := sdk.NewClient("127.0.0.1:8080", &sdk.ClientOpt{
 		InsecureSkipVerify: false,
 		ServerName:         "server.com",
 		CaCrt:              "out/ca.crt",
@@ -46,9 +47,14 @@ func main() {
 
 	defer c.Close()
 
+	if len(os.Args) < 2 {
+		log.Fatalf("missing required argument: product ID\nUsage: %s <uuid>", os.Args[0])
+	}
+	uuid := os.Args[1]
+
 	// Charge amount
 	log.Println(productpb.NewProductServiceClient(c).Update(context.Background(), &productpb.UpdateRequest{
-		Id:          "uuid",
+		Id:          uuid,
 		Name:        fake.Brand(),
 		Active:      true,
 		Attributes:  []string{"size"},

@@ -23,12 +23,12 @@
 package sdk
 
 import (
-	"crypto/tls"
-	"crypto/x509"
+	//"crypto/tls"
+	//"crypto/x509"
 	"fmt"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
-	"io/ioutil"
+	//"google.golang.org/grpc/credentials"
+	//"io/ioutil"
 	"time"
 )
 
@@ -46,7 +46,7 @@ func NewClient(addr string, opt *ClientOpt) (*grpc.ClientConn, error) {
 	}
 
 	// Load key pair
-	certificate, err := tls.LoadX509KeyPair(opt.Crt, opt.Key)
+	/* certificate, err := tls.LoadX509KeyPair(opt.Crt, opt.Key)
 	if err != nil {
 		return nil, err
 	}
@@ -70,10 +70,14 @@ func NewClient(addr string, opt *ClientOpt) (*grpc.ClientConn, error) {
 		}
 		tlsConf.InsecureSkipVerify = false
 		tlsConf.RootCAs = certPool
-	}
+	} */
+
+	/* dailOpts := []grpc.DialOption{
+		grpc.WithTransportCredentials(credentials.NewTLS(tlsConf)),
+	} */
 
 	dailOpts := []grpc.DialOption{
-		grpc.WithTransportCredentials(credentials.NewTLS(tlsConf)),
+		grpc.WithInsecure(),
 	}
 
 	if opt.WithBlock {

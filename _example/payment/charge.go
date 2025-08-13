@@ -31,7 +31,7 @@ import (
 
 func main() {
 
-	c, err := sdk.NewClient("localhost:3051", &sdk.ClientOpt{
+	c, err := sdk.NewClient("127.0.0.1:8080", &sdk.ClientOpt{
 		InsecureSkipVerify: false,
 		ServerName:         "server.com",
 		CaCrt:              "out/ca.crt",

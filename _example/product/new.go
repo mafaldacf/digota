@@ -32,8 +32,8 @@ import (
 
 func main() {
 
-	c, err := sdk.NewClient("localhost:3051", &sdk.ClientOpt{
-		InsecureSkipVerify: false,
+	c, err := sdk.NewClient("127.0.0.1:8080", &sdk.ClientOpt{
+		InsecureSkipVerify: true,
 		ServerName:         "server.com",
 		CaCrt:              "out/ca.crt",
 		Crt:                "out/client.com.crt",
@@ -46,21 +46,35 @@ func main() {
 
 	defer c.Close()
 
-	// Charge amount
-	log.Println(productpb.NewProductServiceClient(c).New(context.Background(), &productpb.NewRequest{
-		Name:        fake.Brand(),
+	resp, err := productpb.NewProductServiceClient(c).New(context.Background(), &productpb.NewRequest{
+		Name:        fake.Product(),
 		Active:      true,
 		Attributes:  []string{"size"},
-		Description: fake.Paragraph(),
+		Description: fake.Model(),
 		Images: []string{
 			"http://digota.com/image1.jpg",
 			"http://digota.com/image2.jpg",
 		},
 		Metadata: map[string]string{
-			"myAppExtraData": "12345",
+			"mymetadata": "12345",
 		},
 		Shippable: true,
 		Url:       "http://digota.com",
-	}))
+	})
+	if err != nil {
+		log.Fatalf("failed to create product: %v", err)
+	}
 
+	log.Printf("Created Product:\n  ID: %s\n  Name: %s\n  Active: %t\n  Description: %s\n  URL: %s\n  Attributes: %v\n  Images: %v\n  Metadata: %v\n  Shippable: %t\n  Created: %d\n",
+		resp.Id,
+		resp.Name,
+		resp.Active,
+		resp.Description,
+		resp.Url,
+		resp.Attributes,
+		resp.Images,
+		resp.Metadata,
+		resp.Shippable,
+		resp.Created,
+	)
 }

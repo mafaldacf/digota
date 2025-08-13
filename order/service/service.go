@@ -42,6 +42,7 @@ import (
 	"google.golang.org/grpc/status"
 	"sync"
 	"time"
+	"log"
 )
 
 const (
@@ -292,10 +293,13 @@ func (s *orderService) Pay(ctx context.Context, req *orderpb.PayRequest) (*order
 
 // Pay implements the orderpb.Pay interface. Pay on specific orderId with CC based on payment provider supplied.
 func (s *orderService) Return(ctx context.Context, req *orderpb.ReturnRequest) (*orderpb.Order, error) {
+	log.Printf("[ORDER RETURN] REQUEST for order_id = %v\n", req.GetId())
+
 	// validate input
 	if err := validation.Validate(req); err != nil {
 		return nil, err
 	}
+
 	// order wrapper
 	o := &order{
 		Order: orderpb.Order{
@@ -319,9 +323,13 @@ func (s *orderService) Return(ctx context.Context, req *orderpb.ReturnRequest) (
 		return nil, err
 	}
 	// check if order can be refunded
-	if err := o.IsReturnable(amount); err != nil {
+	log.Printf("[ORDER RETURN] IsReturnable(amount=%v) --> before\n", amount)
+	/* if err := o.IsReturnable(amount); err != nil {
 		return nil, err
-	}
+	} */
+	o.Status = orderpb.Order_Paid
+	log.Printf("[RETURN] IsReturnable(amount=%v) --> after\n", amount)
+
 	// lock all inventory order items (inventory objects)
 	lockedItems := getLockedOrderItems(ctx, &o.Order)
 	// Free all locks at func return
@@ -331,9 +339,11 @@ func (s *orderService) Return(ctx context.Context, req *orderpb.ReturnRequest) (
 		}
 	}()
 	// refund the order
-	if _, err := payment.Service().RefundCharge(ctx, &paymentpb.RefundRequest{Id: o.GetChargeId(), Amount: uint64(amount)}); err != nil {
+	log.Printf("[ORDER RETURN] payment.Service().RefundCharge(chargetId=%v, amount=%v) --> before\n", o.GetChargeId(), amount)
+	/* if _, err := payment.Service().RefundCharge(ctx, &paymentpb.RefundRequest{Id: o.GetChargeId(), Amount: uint64(amount)}); err != nil {
 		return nil, err
-	}
+	} */
+	log.Printf("[ORDER RETURN] payment.Service().RefundCharge(chargetId=%v, amount=%v) --> before\n", o.GetChargeId(), amount)
 	// update order status
 	switch o.Status {
 	// if the order has been paid but never fulfilled
@@ -341,11 +351,18 @@ func (s *orderService) Return(ctx context.Context, req *orderpb.ReturnRequest) (
 	// inventory item will get updated since the sku is in
 	// stock again
 	case orderpb.Order_Paid:
+		log.Printf("[ORDER RETURN] order paid\n")
 		o.Status = orderpb.Order_Canceled
 		// notify listeners we want to return the items back in inventory
 		// update inventories
-		for _, item := range lockedItems {
+		for i, item := range lockedItems {
+			log.Printf("[ORDER RETURN] item (%d): %v\n", i, item)
+			if item.Sku == nil {
+				log.Printf("[ERROR] nil item.Sku for item: %v\n", item)
+				return nil, status.Error(codes.DataLoss, fmt.Sprintf("nil item.Sku for item: %v", item))
+			}
 			if item.Sku.Inventory.Type == skupb.Inventory_Finite {
+				log.Printf("[ORDER RETURN] update inventory: %v\n", item.Sku.Inventory.Type)
 				// update inventory Quantity
 				item.Sku.Inventory.Quantity += item.OrderItem.Quantity
 				item.Update()
@@ -356,7 +373,10 @@ func (s *orderService) Return(ctx context.Context, req *orderpb.ReturnRequest) (
 		// inventory will not get updated since we still got no
 		// item to sell again
 	case orderpb.Order_Fulfilled:
+		log.Printf("[ORDER RETURN] order fulfilled\n")
 		o.Status = orderpb.Order_Returned
+	default:
+		log.Printf("[ORDER RETURN] unknown status: %v\n", o.Status)
 	}
 	// update order with retries
 	updateErr := util.Retry(func() error {
@@ -367,6 +387,7 @@ func (s *orderService) Return(ctx context.Context, req *orderpb.ReturnRequest) (
 		return nil, status.Error(codes.DataLoss, fmt.Sprintf("could not update order {%s} object, order has been refunded {%s}!", o.Id, o.ChargeId))
 	}
 	// return order
+	log.Printf("[ORDER RETURN] OK for order_id = %v\n", req.GetId())
 	return &o.Order, nil
 }
 

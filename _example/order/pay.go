@@ -28,11 +28,12 @@ import (
 	"github.com/digota/digota/sdk"
 	"golang.org/x/net/context"
 	"log"
+	"os"
 )
 
 func main() {
 
-	c, err := sdk.NewClient("localhost:3051", &sdk.ClientOpt{
+	c, err := sdk.NewClient("127.0.0.1:8080", &sdk.ClientOpt{
 		InsecureSkipVerify: false,
 		ServerName:         "server.com",
 		CaCrt:              "out/ca.crt",
@@ -46,9 +47,14 @@ func main() {
 
 	defer c.Close()
 
+	if len(os.Args) < 2 {
+		log.Fatalf("missing required argument: order ID\nUsage: %s <uuid>", os.Args[0])
+	}
+	uuid := os.Args[1]
+
 	// Pay order
 	log.Println(orderpb.NewOrderServiceClient(c).Pay(context.Background(), &orderpb.PayRequest{
-		Id:                "b3310d6c-118a-45dc-8a54-752bfb0a7211",
+		Id:                uuid,
 		PaymentProviderId: paymentpb.PaymentProviderId_Stripe,
 		Card: &paymentpb.Card{
 			Type:        paymentpb.CardType_Mastercard,

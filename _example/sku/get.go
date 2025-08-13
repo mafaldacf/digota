@@ -29,11 +29,12 @@ import (
 	"log"
 	"math/rand"
 	"time"
+	"os"
 )
 
 func main() {
 
-	c, err := sdk.NewClient("localhost:3051", &sdk.ClientOpt{
+	c, err := sdk.NewClient("127.0.0.1:8080", &sdk.ClientOpt{
 		InsecureSkipVerify: false,
 		ServerName:         "server.com",
 		CaCrt:              "out/ca.crt",
@@ -49,8 +50,48 @@ func main() {
 
 	rand.Seed(time.Now().UnixNano())
 
-	log.Println(skupb.NewSkuServiceClient(c).Get(context.Background(), &skupb.GetRequest{
-		Id: "uuid",
-	}))
+	if len(os.Args) < 2 {
+		log.Fatalf("missing required argument: sku ID\nUsage: %s <uuid>", os.Args[0])
+	}
+	uuid := os.Args[1]
+
+	resp, err := skupb.NewSkuServiceClient(c).Get(context.Background(), &skupb.GetRequest{
+		Id: uuid,
+	})
+	if err != nil {
+		log.Fatalf("failed to get SKU with ID %s: %v", uuid, err)
+	}
+
+	log.Printf("Fetched SKU:\n"+
+		"  ID: %s\n"+
+		"  Name: %s\n"+
+		"  Active: %t\n"+
+		"  Price: %d %s\n"+
+		"  Parent Product ID: %s\n"+
+		"  Attributes: %v\n"+
+		"  Metadata: %v\n"+
+		"  Image: %s\n"+
+		"  Package Dimensions: {Weight: %.2f, Length: %.2f, Height: %.2f, Width: %.2f}\n"+
+		"  Inventory: {Quantity: %d, Type: %s}\n"+
+		"  Created: %d\n"+
+		"  Updated: %d\n",
+		resp.Id,
+		resp.Name,
+		resp.Active,
+		resp.Price,
+		resp.Currency.String(),
+		resp.Parent,
+		resp.Attributes,
+		resp.Metadata,
+		resp.Image,
+		resp.PackageDimensions.Weight,
+		resp.PackageDimensions.Length,
+		resp.PackageDimensions.Height,
+		resp.PackageDimensions.Width,
+		resp.Inventory.Quantity,
+		resp.Inventory.Type.String(),
+		resp.Created,
+		resp.Updated,
+	)
 
 }

@@ -25,15 +25,17 @@ package main
 import (
 	"github.com/digota/digota/sdk"
 	"github.com/digota/digota/sku/skupb"
+	"github.com/digota/digota/payment/paymentpb"
 	"golang.org/x/net/context"
 	"log"
 	"math/rand"
 	"time"
+	"os"
 )
 
 func main() {
 
-	c, err := sdk.NewClient("localhost:3051", &sdk.ClientOpt{
+	c, err := sdk.NewClient("127.0.0.1:8080", &sdk.ClientOpt{
 		InsecureSkipVerify: false,
 		ServerName:         "server.com",
 		CaCrt:              "out/ca.crt",
@@ -47,15 +49,19 @@ func main() {
 
 	defer c.Close()
 
+	if len(os.Args) < 2 {
+		log.Fatalf("missing required argument: product ID\nUsage: %s <uuid>", os.Args[0])
+	}
+	uuid := os.Args[1]
+
 	rand.Seed(time.Now().UnixNano())
 
-	// Charge amount
-	log.Println(skupb.NewSkuServiceClient(c).New(context.Background(), &skupb.NewRequest{
-		//Name:      fake.Brand(),
-		//Active:    true,
-		//Price:     uint64(rand.Int31n(10001)),
-		//Currency:  paymentpb.Currency_EUR,
-		Parent: "cb379ae1-8729-4b32-ba7a-3119dc2bd211",
+	resp, err := skupb.NewSkuServiceClient(c).New(context.Background(), &skupb.NewRequest{
+		Name:     "Snaptags Portable Audible Amplifier",
+		Active:   true,
+		Price:    uint64(rand.Int31n(10001)),
+		Currency: paymentpb.Currency_EUR,
+		Parent:   uuid,
 		//Metadata: map[string]string{
 		//	"key": "val",
 		//},
@@ -73,6 +79,39 @@ func main() {
 		Attributes: map[string]string{
 			"color": "red",
 		},
-	}))
+	})
+	if err != nil {
+		log.Fatalf("failed to create SKU: %v", err)
+	}
 
+	// human-readable output
+	log.Printf("Created SKU:\n"+
+		"  ID: %s\n"+
+		"  Name: %s\n"+
+		"  Active: %t\n"+
+		"  Price: %d %s\n"+
+		"  Parent Product ID: %s\n"+
+		"  Attributes: %v\n"+
+		"  Metadata: %v\n"+
+		"  Image: %s\n"+
+		"  Package Dimensions: {Weight: %.2f, Length: %.2f, Height: %.2f, Width: %.2f}\n"+
+		"  Inventory: {Quantity: %d, Type: %s}\n"+
+		"  Created: %d\n",
+		resp.Id,
+		resp.Name,
+		resp.Active,
+		resp.Price,
+		resp.Currency.String(),
+		resp.Parent,
+		resp.Attributes,
+		resp.Metadata,
+		resp.Image,
+		resp.PackageDimensions.Weight,
+		resp.PackageDimensions.Length,
+		resp.PackageDimensions.Height,
+		resp.PackageDimensions.Width,
+		resp.Inventory.Quantity,
+		resp.Inventory.Type.String(),
+		resp.Created,
+	)
 }

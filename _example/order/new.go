@@ -2,7 +2,7 @@
 // Copyright (c) 2018 Yaron Sumel <yaron@digota.com>
 //
 // MIT License
-// Permission is hereby granted, free of charge, to any person obtaining a copy
+// Permission is hereby granted, free of charge, to any person obtaining arg copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
@@ -28,11 +28,13 @@ import (
 	"github.com/digota/digota/sdk"
 	"golang.org/x/net/context"
 	"log"
+	"os"
+	"strings"
 )
 
 func main() {
 
-	c, err := sdk.NewClient("localhost:3051", &sdk.ClientOpt{
+	c, err := sdk.NewClient("127.0.0.1:8080", &sdk.ClientOpt{
 		InsecureSkipVerify: false,
 		ServerName:         "server.com",
 		CaCrt:              "out/ca.crt",
@@ -46,44 +48,41 @@ func main() {
 
 	defer c.Close()
 
-	// Create new order
-	o, err := orderpb.NewOrderServiceClient(c).New(context.Background(), &orderpb.NewRequest{
-		Currency: paymentpb.Currency_USD,
-		Items: []*orderpb.OrderItem{
-			{
-				Parent:   "af350ecc-56c8-485f-8858-74d4faffa9cb",
-				Quantity: 2,
-				Type:     orderpb.OrderItem_sku,
-			},
-			{
-				Parent:   "af350ecc-56c8-485f-8858-74d4faffa9cb",
-				Quantity: 2,
-				Type:     orderpb.OrderItem_sku,
-			},
-			//{
-			//	Parent:   "480e53bf-b409-4a34-8c74-13786b35ae11",
-			//	Quantity: 1,
-			//	Type:     orderpb.OrderItem_sku,
-			//},
-			//{
-			//	Parent:   "480e53bf-b409-4a34-8c74-13786b35ae11",
-			//	Quantity: 1,
-			//	Type:     orderpb.OrderItem_sku,
-			//},
-			{
-				Amount:      -1000,
-				Description: "on the fly discount without parent",
-				Currency:    paymentpb.Currency_USD,
-				Type:        orderpb.OrderItem_discount,
-			},
-			{
-				Amount:      1000,
-				Description: "Tax (Included)",
-				Currency:    paymentpb.Currency_USD,
-				Type:        orderpb.OrderItem_tax,
-			},
-		},
-		Email: "yaron@digota.com",
+	if len(os.Args) < 2 {
+		log.Fatalf("missing required arguments: at least one sku ID\nusage: %s <sku-uuid> [<sku-uuid> ...]", os.Args[0])
+	}
+
+	var uuid []string
+	for _, arg := range os.Args[1:] {
+		uuid = append(uuid, arg)
+	}
+
+	quantity := make(map[string]int)
+	uuids := make([]string, 0, len(os.Args)-1)
+	for _, arg := range os.Args[1:] {
+		uuid := strings.TrimSpace(arg)
+		if uuid == "" {
+			continue
+		}
+		if _, seen := quantity[uuid]; !seen {
+			uuids = append(uuids, uuid)
+		}
+		quantity[uuid]++
+	}
+
+	items := make([]*orderpb.OrderItem, 0, len(quantity))
+	for _, uuid := range uuids {
+		items = append(items, &orderpb.OrderItem{
+			Parent:   uuid,
+			Quantity: int64(quantity[uuid]),
+			Type:     orderpb.OrderItem_sku,
+		})
+	}
+
+	order, err := orderpb.NewOrderServiceClient(c).New(context.Background(), &orderpb.NewRequest{
+		Currency: paymentpb.Currency_EUR,
+		Items:    items,
+		Email:    "yaron@digota.com",
 		Shipping: &orderpb.Shipping{
 			Name:  "Yaron Sumel",
 			Phone: "+972 000 000 000",
@@ -97,11 +96,12 @@ func main() {
 			},
 		},
 	})
-
 	if err != nil {
-		panic(err)
+		log.Fatalf("failed to create order: %v", err)
 	}
 
-	log.Println(o.GetId())
-
+	log.Printf("created order:\n  id: %s\n  currency: %s\n  items:", order.Id, paymentpb.Currency_EUR.String())
+	for i, item := range items {
+		log.Printf("    [%d] parent: %s | qty: %d | type: %s", i+1, item.Parent, item.Quantity, orderpb.OrderItem_sku.String())
+	}
 }

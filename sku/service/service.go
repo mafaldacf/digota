@@ -35,6 +35,7 @@ import (
 	"github.com/digota/digota/validation"
 	"golang.org/x/net/context"
 	"time"
+	"log"
 )
 
 const ns = "sku"
@@ -129,6 +130,7 @@ func (s *skuService) Get(ctx context.Context, req *skupb.GetRequest) (*skupb.Sku
 }
 
 func (s *skuService) Update(ctx context.Context, req *skupb.UpdateRequest) (*skupb.Sku, error) {
+	log.Printf("[SKU UPDATE] REQUEST for sku id = %v\n", req.GetId())
 
 	// input validation
 	if err := validation.Validate(req); err != nil {
@@ -216,6 +218,7 @@ func (s *skuService) Update(ctx context.Context, req *skupb.UpdateRequest) (*sku
 		item.Inventory = x
 	}
 
+	log.Printf("[SKU UPDATE] OK for sku id = %v\n", req.GetId())
 	return &item.Sku, storage.Handler().Update(item)
 
 }
@@ -243,7 +246,7 @@ func (s *skuService) Delete(ctx context.Context, req *skupb.DeleteRequest) (*sku
 }
 
 func (s *skuService) GetWithInventoryLock(ctx context.Context, req *skuInterface.GetWithInventoryLockRequest) (*skupb.Sku, func() error, util.Fn, error) {
-
+	log.Printf("[SKU GET_WITH_INVENTORY_LOCK] REQUEST for id = %v\n", req.Id)
 	if err := validation.Validate(req); err != nil {
 		return nil, nil, nil, err
 	}
@@ -273,9 +276,13 @@ func (s *skuService) GetWithInventoryLock(ctx context.Context, req *skuInterface
 	//}
 
 	setFn := func() error {
-		return storage.Handler().Update(item)
+		log.Printf("[SKU UPDATE_FN] REQUEST for item = %v\n", item)
+		err := storage.Handler().Update(item)
+		log.Printf("[SKU UPDATE_FN] OK for item = %v\n", item)
+		return err
 	}
 
+	log.Printf("[SKU GET_WITH_INVENTORY_LOCK] OK for id = %v\n", req.Id)
 	return &item.Sku, unlock, setFn, nil
 
 }
